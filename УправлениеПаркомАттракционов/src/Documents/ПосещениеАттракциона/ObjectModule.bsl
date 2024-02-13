@@ -14,43 +14,74 @@
 #Region EventHandlers
 
 Procedure Posting(Cancel,Mode)
-	//{{__REGISTER_RECORD_WIZARD
-	//This fragment was built by the wizard.
-	//Warning! All manually made changes will be lost next time you use the wizard.
 
 	// register АктивныеПосещения
+	RegisterRecords.АктивныеПосещения.Write = True;
+	RegisterRecords.Write();
+	
+	Query = New Query;
+	Query.Text =
+		"SELECT
+		|	АктивныеПосещенияBalance.ВидАттракциона,
+		|	АктивныеПосещенияBalance.КоличествоПосещенийBalance
+		|FROM
+		|	AccumulationRegister.АктивныеПосещения.Balance(, Основание = &Основание) AS АктивныеПосещенияBalance";
+	
+	Query.SetParameter("Основание", Основание);
+	
+	QueryResult = Query.Execute();
+	
+	SelectionDetailRecords = QueryResult.Select();
+	
+	VisitsLeft = 0;
+	Subscriber = Undefined;
+	
+	If SelectionDetailRecords.Next() Then
+
+		VisitsLeft =  SelectionDetailRecords.КоличествоПосещенийBalance;
+		Subscriber = SelectionDetailRecords.ВидАттракциона;			
+
+	EndIf;
+	
+	If VisitsLeft < 1 Then 
+		
+		Cancel = True;
+		
+		UMessage = Новый UserMessage;
+		UMessage.Text = "There are no visits left on the ticket";
+		UMessage.SetData(ThisObject);
+		UMessage.Field = "Основание";
+		UMessage.Message();		
+		
+	EndIf;
+	
+	TypeDocAttraction = ВидАттракциона(Аттракцион);
+	
+	If ValueIsFilled(Subscriber) 
+	And TypeDocAttraction <> Subscriber Then 
+		
+		Cancel = True;
+		
+		UMessage = Новый UserMessage;
+		UMessage.Text = "Ticket is not valid for this attraction";
+		UMessage.SetData(ThisObject);
+		UMessage.Field = "Основание";
+		UMessage.Message();		
+		
+	EndIf;
+	
+	If Cancel Then
+		Return;
+	EndIf;
+		
 	RegisterRecords.АктивныеПосещения.Write = True;
 	Record = RegisterRecords.АктивныеПосещения.Add();
 	Record.Period = Date;
 	Record.RecordType = AccumulationRecordType.Expense;
 	Record.Основание = Основание;
-	Record.Аттракцион = Аттракцион;
+	Record.ВидАттракциона = Subscriber;
 	Record.КоличествоПосещений = 1;
 
-	RegisterRecords.Write();
-	
-	Query = New Query;
-	Query.Text = "SELECT
-	|	АктивныеПосещенияBalance.Основание
-	|FROM
-	|	AccumulationRegister.АктивныеПосещения.Balance(, Основание = &Основание) AS АктивныеПосещенияBalance
-	|WHERE
-	|	АктивныеПосещенияBalance.КоличествоПосещенийBalance < 0";	
-
-	Query.SetParameter("Основание", Основание);
-	
-	Если Не Query.Execute().IsEmpty() Тогда 
-		
-		Cancel = True;
-		
-		Сообщение = Новый СообщениеПользователю;
-		Сообщение.Text = "По одному билету можно пройти один раз";
-		Сообщение.SetData(ЭтотОбъект);
-		Сообщение.Field = "Основание";
-		Сообщение.Message();		
-	КонецЕсли;
-	
-	
 EndProcedure
 
 #EndRegion
@@ -63,7 +94,24 @@ EndProcedure
 
 #Region Private
 
-// Enter code here.
+Функция ВидАттракциона(Аттракцион)
+	
+	Запрос = Новый Запрос;
+	Запрос.Текст = "SELECT
+	|	Аттракционы.ВидАттракциона
+	|FROM
+	|	Catalog.Аттракционы AS Аттракционы
+	|WHERE
+	|	Аттракционы.Ref = &Ref";
+	
+	Запрос.УстановитьПараметр("Ref", Аттракцион);
+	Выборка  = Запрос.Выполнить().Выбрать();
+	Выборка.Следующий();
+	
+	Возврат Выборка.ВидАттракциона;
+	
+КонецФункции
+
 
 #EndRegion
 
